@@ -1,9 +1,15 @@
-﻿using System.ClientModel;
+﻿//Microsoft Foundry
+using System.ClientModel;
 using System.ClientModel.Primitives;
 using Azure.AI.OpenAI;
 using Azure.AI.Projects;
 using Azure.Identity;
 using OpenAI.Chat;
+
+//Microsoft AI framework
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+using OpenAI;
 
 namespace aiagent;
 
@@ -150,26 +156,54 @@ internal abstract class Program
     /// </summary>
     private static async Task MsAiAgentFrameworkService()
     {
-        // string apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-        // string model = "gpt-5-nano";
-        // string prompt =
-        //     "What are the largest cities in the world? Respondwith NAME and TOTAL AREA in square kilometers";
-        // OpenAIClient client = new(apiKey);
-        // ChatClient chatClient = client.GetChatClient(model);
-        // IChatClient chatClientInterface = chatClient.AsIChatClient();
-        // ChatClientAgent aiAgent = new(chatClientInterface, "You are super helpful", "My Agent");
-        //
-        //
-        // ChatMessage chatMessage = new(ChatRole.User, prompt);
-        //
-        // AgentResponse<IEnumerable<LargestCity>>
-        //     response = await aiAgent.RunAsync<IEnumerable<LargestCity>>(chatMessage);
-        //
-        // foreach (LargestCity city in response.Result)
-        // {
-        //     Console.WriteLine(response.Text);
-        // }
-    }
+        string apiKey? = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            Console.WriteLine("Set OPENAI_API_KEY.");
+            return;
+        }
 
-    //private record LargestCity(string Name, decimal? Area);
+        const string model = "gpt-4.1-mini";
+        
+        OpenAIClient openAiClient = new(apiKey);
+        IChatClient chatClient = openAiClient.GetChatClient(model).AsIChatClient();
+
+        ChatClientAgent agent = new(
+            chatClient,
+            instructions: "You are a helpful AI assistant.",
+            name: "My Agent");
+
+            AgentSession session = await agent.CreateSessionAsync();
+
+        Console.WriteLine("Chat started. Type /exit to quit.");
+        while (true)
+        {
+            Console.Write("> ");
+            string? question = Console.ReadLine();
+
+            if (question is null || question.Trim().Equals("/exit", StringComparison.OrdinalIgnoreCase))
+            {
+                break;
+            }
+
+            if (string.IsNullOrWhiteSpace(question))
+            {
+                continue;
+            }
+
+            try
+            {
+                AgentResponse response = await agent.RunAsync(question, session);
+                Console.WriteLine(response.Text);
+            }
+            catch (ClientResultException e)
+            {
+                Console.WriteLine($"OpenAI call failed ({e.Status}): {e.Message}");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"{e.GetType().Name}: {e.Message}");
+            }
+        }
+    }
 }
