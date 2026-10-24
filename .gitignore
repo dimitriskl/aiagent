@@ -1,3 +1,5 @@
 ﻿/src/bin
 /src/obj
 .env
+.idea/
+.vscode/
